@@ -1,0 +1,95 @@
+# -------------------------------------------------------
+# Some common sense basics to secure Debian Linux servers
+
+
+# installing extra security packages
+
+apt-get install denyhosts tiger rkhunter chkrootkit snort oinkmaster checksecurity logcheck logwatch fcheck logcheck-database syslog-summary tripwire auditd acct ninja sysstat
+
+# after downloading and installing, build the tripwire database:
+
+tripwire --init
+
+# most of the tools send e-mail to root@localhost, make sure to redirect this to a working e-mail address:
+
+echo "root: my.email@address.com" >> /etc/aliases
+newaliases
+
+# Download the 'sysctl.conf' provided here, place it in /etc and run:
+
+wget -O /etc/sysctl.conf http://klaver.it/linux/sysctl.conf
+sysctl -e -p /etc/sysctl.conf
+
+# Download the 'rc.iptables' save it to /etc/init.d and edit it to only open the desired ports for your server you really need, after that do:
+
+wget -O /etc/init.d/rc.iptables http://klaver.it/linux/rc.iptables
+chmod 755 /etc/init.d/rc.iptables
+update-rc.d rc.iptables defaults
+/etc/init.d/rc.iptables start &
+
+# Get automatic security updates
+
+apt-get install cron-apt unattended-upgrades
+
+# Do some virusscanning to make sure there are no unwanted files on your server system:
+
+apt-get install clamav clamav-daemon clamav-freshclam
+freshclam
+clamscan --infected --recursive --no-summary /
+
+# You could also do this on a daily basis and add it as cronjob:
+
+echo "13 5 * * * clamscan --infected --recursive --no-summary /" >> /var/spool/cron/crontabs/root
+
+# remove or take away permissions of all system tools that can be used to download files at the command-line (like lynx and wget)
+
+chmod 700 /usr/bin/wget /usr/bin/curl /usr/bin/GET /usr/bin/ftp /usr/bin/telnet
+dpkg -P lynx links
+
+# Search for other installations of these tools and remove or disable them for normal users
+
+whereis wget curl GET links lynx ftp telnet
+
+# Monitor your user cron-jobs and look for suspicious commands
+
+cat /var/spool/cron/crontabs/*
+
+# In case you do not want your users to use cron-jobs, you can disable them all (exept for the root user) using the following commands
+
+echo root > /etc/cron.allow
+/etc/init.d/cron restart
+
+# Let the server fix it's filesystem automatically when errors are found
+
+echo "FSCKFIX=yes" >> /etc/defaults/rcS
+
+
+
+# --------------------------------------------------
+# Adding webserver software specific security tweaks:
+
+# use apache mod_security (www.modsecurity.org)
+
+# use the suexec tool to limit permissions of CGI scripts
+
+# use SuPHP to limit permissions of PHP scripts
+
+# For PHP edit php.ini and set the following options:
+
+allow_url_fopen = Off
+allow_url_include = Off
+register_globals = Off
+
+# PHP safe_mode will add some extra limitations, see http://www.php.net/manual/en/features.safe-mode.functions.php
+# use PHP option safe_mode = On , or disable a list of common abused php functions that are rarely used by legitimate php software packages:
+
+disable_functions = dl,system,exec,passthru,shell_exec,proc_open,proc_get_status,proc_terminate,proc_close,dir,readfile,virtual,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source
+
+# install the php hardening patch available at www.hardened-php.net and you might also try the suhosin patch available at the same website.
+
+# set php option open_basedir for every website limiting them to their own user home-dir to prevent php scripts get access to other users and websites at the system.
+
+
+
+# Your server is now a bit more secure, but you still have to keep an eye at your users and make sure they do not upload and use insecure/buggy/old software packages
+

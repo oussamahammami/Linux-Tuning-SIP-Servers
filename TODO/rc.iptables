@@ -1,0 +1,243 @@
+#!/bin/bash
+#### BEGIN INIT INFO
+# Provides:          iptables
+# Required-Start:    $network
+# Required-Stop:     
+# Default-Start:     2 3 4 5
+# Default-Stop:      S 0 1 6
+# Short-Description: iptables firewall script
+# Description:       iptables firewall script
+### END INIT INFO
+
+###
+### FireWall script - v1.1 Michiel Klaver 2008-10-29
+###
+
+
+
+set -e
+
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+
+# iptables Location - adjust if needed
+IPT="/sbin/iptables"
+
+# Internet Interface
+INET_IFACE="eth0"
+
+# Localhost Interface
+LO_IFACE="lo"
+LO_IP="127.0.0.1"
+
+
+
+# we do not use forwarding / NAT
+echo 0 > /proc/sys/net/ipv4/ip_forward
+
+# remove any existing ipchains
+([ -f /var/lock/subsys/ipchains ] && /etc/init.d/ipchains stop) >/dev/null 2>&1 || true
+(rmmod ipchains) >/dev/null 2>&1 || true
+
+# insert iptable modules
+/sbin/modprobe ip_tables
+/sbin/modprobe ipt_state
+/sbin/modprobe iptable_filter
+/sbin/modprobe ip_conntrack
+/sbin/modprobe ip_conntrack_ftp
+
+
+
+# clear all previous iptable rules
+$IPT -F
+$IPT -X
+$IPT -Z
+
+# do not use forwarding / NAT
+$IPT -t nat -F
+$IPT -t nat -X
+$IPT -t nat -Z
+
+# do not alter packets
+$IPT -t mangle -F
+$IPT -t mangle -X
+$IPT -t mangle -Z
+
+
+
+case "$1" in
+    stop|open|clear|reset)
+	# set default policy for all traffic to ACCEPT
+	$IPT -P INPUT ACCEPT
+	$IPT -P OUTPUT ACCEPT
+	$IPT -P FORWARD ACCEPT
+	
+	$IPT -A INPUT -j ACCEPT
+	$IPT -A OUTPUT -j ACCEPT
+	$IPT -A FORWARD -j ACCEPT
+	exit 0
+    ;;
+esac
+
+
+
+# set default policy for all traffic to DROP
+$IPT -P INPUT DROP
+$IPT -P OUTPUT DROP
+$IPT -P FORWARD DROP
+
+# Every new connection attempt should begin with a syn packet.  If it doesn't, it is likely a
+# port scan.  This drops packets in state NEW that are not flagged as syn packets.
+$IPT -A INPUT -p all -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPT -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+$IPT -A INPUT -p all -m state --state INVALID -j DROP
+
+$IPT -A OUTPUT -p all -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPT -A OUTPUT -p tcp ! --syn -m state --state NEW -j DROP
+$IPT -A OUTPUT -p all -m state --state INVALID -j DROP
+
+
+
+# ICMP packets should fit in a Layer 2 frame, thus they should
+# never be fragmented.  Fragmented ICMP packets are a typical sign
+# of a denial of service attack.
+$IPT -A INPUT --fragment -p ICMP -j DROP
+
+# Block stealth portscans
+$IPT -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
+$IPT -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
+$IPT -A INPUT -p tcp --tcp-flags ALL FIN,URG,PSH -j DROP
+$IPT -A INPUT -p tcp --tcp-flags ALL SYN,RST,ACK,FIN,URG -j DROP
+$IPT -A INPUT -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
+$IPT -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+
+# all connections from / to localhost are allowed
+$IPT -A INPUT -p all -i $LO_IFACE -j ACCEPT
+$IPT -A OUTPUT -p all -o $LO_IFACE -j ACCEPT
+$IPT -A OUTPUT -p all -s $LO_IP -j ACCEPT
+
+
+
+# HTTP / HTTPS
+$IPT -A INPUT -p tcp --dport 80 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 443 -j ACCEPT
+
+# FTP
+$IPT -A INPUT -p tcp --dport 20 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 21 -j ACCEPT
+
+# SSH
+$IPT -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --set
+$IPT -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 4 -j REJECT --reject-with tcp-reset
+$IPT -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# SMTP / SSMTP
+$IPT -A INPUT -p tcp --dport 25 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 465 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 587 -j ACCEPT
+
+# POP3PASS
+$IPT -A INPUT -p tcp --dport 106 -j ACCEPT
+
+# POP3 / POP3S
+$IPT -A INPUT -p tcp --dport 110 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 995 -j ACCEPT
+
+# IMAP / IMAPS
+$IPT -A INPUT -p tcp --dport 143 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 993 -j ACCEPT
+
+# MySQL
+$IPT -A INPUT -p tcp --dport 3306 -j ACCEPT
+
+# PostgreSQL
+$IPT -A INPUT -p tcp --dport 5432 -j ACCEPT
+
+# DNS
+$IPT -A INPUT -p udp --dport 53 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 53 -j ACCEPT
+
+# Admin Panels (Plesk / DirectAdmin)
+$IPT -A INPUT -p tcp --dport 8443 -j ACCEPT
+$IPT -A INPUT -p tcp --dport 2222 -j ACCEPT
+
+# ICMP
+$IPT -A INPUT -p icmp --icmp-type echo-reply -j ACCEPT
+$IPT -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+$IPT -A INPUT -p icmp --icmp-type destination-unreachable -j ACCEPT
+$IPT -A INPUT -p icmp --icmp-type fragmentation-needed -j ACCEPT
+$IPT -A INPUT -p icmp --icmp-type source-quench -j ACCEPT
+$IPT -A INPUT -p icmp --icmp-type time-exceeded -j ACCEPT
+$IPT -A INPUT -p icmp --icmp-type parameter-problem -j ACCEPT
+
+
+
+# UDP part of tracerouting
+$IPT -A INPUT  -p udp --sport 32769:65535 --dport 33434:33523 -j ACCEPT
+$IPT -A OUTPUT -p udp --sport 32769:65535 --dport 33434:33523 -j ACCEPT
+
+# SSH
+$IPT -A OUTPUT -p tcp --dport 22 -j ACCEPT
+
+# SMTP
+$IPT -A OUTPUT -p tcp --dport 25 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 465 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 587 -j ACCEPT
+
+# POP3/IMAP
+$IPT -A OUTPUT -p tcp --dport 110 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 143 -j ACCEPT
+
+# HTTP/HTTPS
+$IPT -A OUTPUT -p tcp --dport 80 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 443 -j ACCEPT
+
+# DNS
+$IPT -A OUTPUT -p udp --dport 53 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 53 -j ACCEPT
+
+# SNMP
+$IPT -A OUTPUT -p udp --dport 161 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 161 -j ACCEPT
+$IPT -A OUTPUT -p udp --dport 162 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 162 -j ACCEPT
+
+# NTP (date/time)
+$IPT -A OUTPUT -p tcp --dport 37 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 123 -j ACCEPT
+$IPT -A OUTPUT -p udp --dport 123 -j ACCEPT
+
+# WhoIs clientside
+$IPT -A OUTPUT -p tcp --dport 43 -j ACCEPT
+
+# Razor2/Pyzor/DCC (spamchecks)
+$IPT -A OUTPUT -p udp --dport 24441 -j ACCEPT
+$IPT -A OUTPUT -p udp --dport 6277 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 2703 -j ACCEPT
+$IPT -A OUTPUT -p tcp --dport 7 -j ACCEPT
+
+# MySQL
+$IPT -A OUTPUT -p tcp --dport 3306 -j ACCEPT
+
+# PostgreSQL
+$IPT -A OUTPUT -p tcp --dport 5432 -j ACCEPT
+
+# ICMP
+$IPT -A OUTPUT -p icmp --icmp-type echo-reply -j ACCEPT
+$IPT -A OUTPUT -p icmp --icmp-type echo-request -j ACCEPT
+$IPT -A OUTPUT -p icmp --icmp-type destination-unreachable -j ACCEPT
+$IPT -A OUTPUT -p icmp --icmp-type fragmentation-needed -j ACCEPT
+$IPT -A OUTPUT -p icmp --icmp-type source-quench -j ACCEPT
+$IPT -A OUTPUT -p icmp --icmp-type time-exceeded -j ACCEPT
+$IPT -A OUTPUT -p icmp --icmp-type parameter-problem -j ACCEPT
+
+
+
+# DROP any other protocol other than stated above
+$IPT -A INPUT -j DROP
+$IPT -A OUTPUT -j DROP
+$IPT -A FORWARD -j DROP
+
+
+
+$IPT -L -n

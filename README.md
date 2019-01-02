@@ -2,7 +2,7 @@
 
 There are many guides online about Linux kernel and TCP/UDP tuning, I tried to sum the most useful and detailed Linux kernel useful to scale and handle more concurrent connections on a SIP server such as Asterisk or Kamailio.
 
-This is the **/etc/sysctl.conf** file I use on my servers (CentOS 7.4):
+This is the **/etc/sysctl.conf** file I use on my servers (CentOS 6):
 
 ```
 #

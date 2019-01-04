@@ -253,7 +253,7 @@ To add a new user limits, you can copy paste this file in `/etc/security/limits.
 
 # Increasing the Limit in Systemd
 
-|Note that systemd ignores limits set in the /etc/security/limits.conf and /etc/security/limits.d/*.conf configuration files. The limits defined in these files are set by PAM when starting a login session, but daemons started by systemd do not use PAM login sessions.
+> |Note that systemd ignores limits set in the /etc/security/limits.conf and /etc/security/limits.d/*.conf configuration files. The limits defined in these files are set by PAM when starting a login session, but daemons started by systemd do not use PAM login sessions.
 
 ### Asterisk service `/usr/lib/systemd/system/asterisk.service`
 

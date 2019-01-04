@@ -251,6 +251,92 @@ To add a new user limits, you can copy paste this file in `/etc/security/limits.
 # sed -i 's/root/asterisk/g' 50-asterisk.limits.conf
 ``` 
 
+# Increasing the Limit in Systemd
+
+*Note that systemd ignores limits set in the /etc/security/limits.conf and /etc/security/limits.d/*.conf configuration files. The limits defined in these files are set by PAM when starting a login session, but daemons started by systemd do not use PAM login sessions.*
+
+### Asterisk service `/usr/lib/systemd/system/asterisk.service`
+
+```
+[Unit]
+Description=Asterisk PBX and telephony daemon.
+After=network.target
+
+[Service]
+Type=simple
+Environment=HOME=/var/lib/asterisk
+WorkingDirectory=/var/lib/asterisk
+User=asterisk
+Group=asterisk
+ExecStart=/usr/sbin/asterisk -f -C /etc/asterisk/asterisk.conf
+ExecStop=/usr/sbin/asterisk -rx 'core stop now'
+ExecReload=/usr/sbin/asterisk -rx 'core reload'
+
+# To emulate some of the features of the safe_asterisk script, copy
+# this file to /etc/systemd/system/asterisk.service and uncomment one
+# or more of the following lines.  For more information on what these
+# parameters mean see:
+#
+# http://0pointer.de/public/systemd-man/systemd.service.html
+# http://0pointer.de/public/systemd-man/systemd.exec.html
+
+Nice=1
+#UMask=0002
+LimitCORE=infinity
+LimitNPROC=infinity
+LimitAS=infinity
+LimitRSS=infinity
+LimitDATA=infinity
+LimitFSIZE=infinity
+TimeoutSec=300
+LimitNOFILE=1024000
+LimitSTACK=infinity
+TasksMax=infinity
+LimitRTPRIO=70
+MemoryLimit=infinity
+LimitSIGPENDING=infinity
+LimitMSGQUEUE=infinity
+LimitMEMLOCK=infinity
+
+#Restart=always
+#RestartSec=4
+
+# If you uncomment the following you should add '-c' to the ExecStart line above
+
+#TTYPath=/dev/tty7
+#StandardInput=tty
+#StandardOutput=tty
+#StandardError=tty
+
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+*Note that systemd ignores limits set in the /etc/security/limits.conf and /etc/security/limits.d/*.conf configuration files. The limits defined in these files are set by PAM when starting a login session, but daemons started by systemd do not use PAM login sessions.*
+```
+to check the limits you can use:
+
+```
+# cat /proc/`pidof asterisk`/limits
+Limit                     Soft Limit           Hard Limit           Units
+Max cpu time              unlimited            unlimited            seconds
+Max file size             unlimited            unlimited            bytes
+Max data size             unlimited            unlimited            bytes
+Max stack size            unlimited            unlimited            bytes
+Max core file size        unlimited            unlimited            bytes
+Max resident set          unlimited            unlimited            bytes
+Max processes             unlimited            unlimited            processes
+Max open files            1024000              1024000              files
+Max locked memory         unlimited            unlimited            bytes
+Max address space         unlimited            unlimited            bytes
+Max file locks            unlimited            unlimited            locks
+Max pending signals       unlimited            unlimited            signals
+Max msgqueue size         unlimited            unlimited            bytes
+Max nice priority         0                    0
+Max realtime priority     70                   70
+Max realtime timeout      unlimited            unlimited            us
+```
+
 ## Reference
 
 * [Linux Tuning For SIP Routers](https://voipmagazine.wordpress.com/2014/12/13/linux-tuning-for-sip-routers-part-1-interrupts-and-irq-tuning/)

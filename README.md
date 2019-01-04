@@ -337,6 +337,25 @@ Max realtime priority     70                   70
 Max realtime timeout      unlimited            unlimited            us
 ```
 
+RESOURCE    | DESCRIPTION  
+----------- | -------------
+AS          | address space limit                
+CORE        | max core file size                 
+CPU         | CPU time                           
+DATA        | max data size                      
+FSIZE       | max file size                      
+LOCKS       | max number of file locks held      
+MEMLOCK     | max locked-in-memory address space 
+MSGQUEUE    | max bytes in POSIX mqueues         
+NICE        | max nice prio allowed to raise     
+NOFILE      | max number of open files           
+NPROC       | max number of processes            
+RSS         | max resident set size              
+RTPRIO      | max real-time priority             
+RTTIME      | timeout for real-time tasks        
+SIGPENDING  | max number of pending signals      
+STACK       | max stack size                     
+
 ## Reference
 
 * [Linux Tuning For SIP Routers](https://voipmagazine.wordpress.com/2014/12/13/linux-tuning-for-sip-routers-part-1-interrupts-and-irq-tuning/)
@@ -346,3 +365,5 @@ Max realtime timeout      unlimited            unlimited            us
 * [Sysctl tuning for optimized system performance](https://mindless.atlassian.net/wiki/spaces/Linux/pages/1114116/Sysctl+tuning+for+optimized+system+performance)
 
 * [Securing Network Access](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/sec-securing_network_access)
+
+* [CREATING AND MODIFYING SYSTEMD UNIT FILES](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/sect-managing_services_with_systemd-unit_files)
